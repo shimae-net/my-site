@@ -37,3 +37,9 @@ export const postSchema = postFrontMatterSchema.extend({
 });
 
 export type Post = z.output<typeof postSchema>;
+
+export type SitemapEntry = {
+	pathname: string;
+	/** Omit this when a page has no meaningful content update date. */
+	lastModified?: Date;
+};

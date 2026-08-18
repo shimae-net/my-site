@@ -5,11 +5,12 @@ import { formatInTimeZone } from "date-fns-tz";
 import { marked } from "marked";
 import { ZodError, z } from "zod";
 import { parse } from "zod-matter";
-import { SITE_TIME_ZONE } from "./site.ts";
+import { SITE_TIME_ZONE, SITE_URL } from "./site.ts";
 import {
 	type Post,
 	postFilenameSchema,
 	postFrontMatterSchema,
+	type SitemapEntry,
 } from "./types.ts";
 
 const CONTENT_DIR = "content/blog";
@@ -18,7 +19,7 @@ const BLOG_OUTPUT_DIR = "dist/blog";
 const articleTemplate = fs.readFileSync("templates/article.html", "utf8");
 const indexTemplate = fs.readFileSync("templates/index.html", "utf8");
 
-function creanOutput() {
+function cleanOutput() {
 	fs.rmSync(OUTPUT_DIR, { recursive: true, force: true });
 	fs.mkdirSync(BLOG_OUTPUT_DIR, { recursive: true });
 }
@@ -73,7 +74,18 @@ function loadPost(file): Post {
 	};
 }
 
-async function buildArticle(post: Post) {
+function getPostPath(post: Post): string {
+	return `/blog/${post.slug}/`;
+}
+
+function getPostSitemapEntry(post: Post): SitemapEntry {
+	return {
+		pathname: getPostPath(post),
+		lastModified: post.updatedAt ?? post.createdAt,
+	};
+}
+
+async function buildArticle(post: Post): Promise<void> {
 	const content = await marked(post.content);
 
 	const html = articleTemplate
@@ -92,7 +104,16 @@ async function buildArticle(post: Post) {
 	fs.writeFileSync(path.join(outputDir, "index.html"), html);
 }
 
-function buildIndex(posts: Post[]) {
+function getLastModified(posts: Post[]): Date | undefined {
+	return posts
+		.map((post) => post.updatedAt ?? post.createdAt)
+		.reduce<Date | undefined>(
+			(latest, date) => (!latest || date > latest ? date : latest),
+			undefined,
+		);
+}
+
+function buildIndex(posts: Post[]): void {
 	const postsHtml = posts
 		.toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 		.map(renderPostListItem)
@@ -106,7 +127,7 @@ function buildIndex(posts: Post[]) {
 function renderPostListItem(post: Post) {
 	return `
     <li>
-      <a href="/blog/${post.slug}/">
+      <a href="${getPostPath(post)}">
         ${post.title}
       </a>
 		<time datetime="${post.createdAt.toISOString()}">
@@ -120,8 +141,57 @@ function copyPublic() {
 	fs.cpSync("public", OUTPUT_DIR, { recursive: true });
 }
 
+function escapeXmlText(value: string): string {
+	return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
+}
+
+function xmlElement(name: string, value: string): string {
+	return `<${name}>${escapeXmlText(value)}</${name}>`;
+}
+
+function renderSitemapEntry(entry: SitemapEntry): string {
+	const url = new URL(entry.pathname, SITE_URL).href;
+	const elements = [xmlElement("loc", url)];
+
+	if (entry.lastModified) {
+		const lastModified = formatInTimeZone(
+			entry.lastModified,
+			"UTC",
+			"yyyy-MM-dd'T'HH:mm'Z'",
+		);
+
+		elements.push(xmlElement("lastmod", lastModified));
+	}
+
+	return `  <url>
+${elements.map((element) => `    ${element}`).join("\n")}
+  </url>`;
+}
+
+function buildSitemap(entries: SitemapEntry[]) {
+	const urls = entries.map(renderSitemapEntry).join("\n");
+
+	const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>
+`;
+
+	fs.writeFileSync(path.join(OUTPUT_DIR, "sitemap.xml"), sitemap);
+}
+
+function getSitemapEntries(posts: Post[]): SitemapEntry[] {
+	return [
+		{
+			pathname: "/",
+			lastModified: getLastModified(posts),
+		},
+		...posts.map(getPostSitemapEntry),
+	];
+}
+
 async function main() {
-	creanOutput();
+	cleanOutput();
 
 	const posts = loadPosts();
 
@@ -130,6 +200,7 @@ async function main() {
 	}
 
 	buildIndex(posts);
+	buildSitemap(getSitemapEntries(posts));
 	copyPublic();
 
 	console.log("Build complete.");
