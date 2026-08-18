@@ -1,0 +1,24 @@
+{
+	"type": "module",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"build": "node tools/build.ts",
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"lint": "biome lint .",
+		"format": "biome format --write .",
+		"check": "biome check .",
+		"check:fix": "biome check --write ."
+	},
+	"dependencies": {
+		"date-fns": "^4.4.0",
+		"gray-matter": "^4.0.3",
+		"marked": "^18.0.9"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.8",
+		"wrangler": "^4.123.0"
+	}
+}

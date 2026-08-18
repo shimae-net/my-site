@@ -1,0 +1,12 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "my-site",
+	"compatibility_date": "2026-08-17",
+	"assets": {
+		// The path to the directory containing the `index.html` file to be served at `/`
+		"directory": "./dist"
+	},
+	"observability": {
+		"enabled": true
+	}
+}
