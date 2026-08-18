@@ -6,12 +6,15 @@ import { marked } from "marked";
 import { ZodError, z } from "zod";
 import { parse } from "zod-matter";
 
-import { type Post, postFrontMatterSchema } from "./types.ts";
+import {
+	type Post,
+	postFilenameSchema,
+	postFrontMatterSchema,
+} from "./types.ts";
 
 const CONTENT_DIR = "content/blog";
 const OUTPUT_DIR = "dist";
 const BLOG_OUTPUT_DIR = "dist/blog";
-
 const articleTemplate = fs.readFileSync("templates/article.html", "utf8");
 const indexTemplate = fs.readFileSync("templates/index.html", "utf8");
 
@@ -47,6 +50,14 @@ function loadPosts(): Post[] {
 
 function loadPost(file): Post {
 	const filePath = path.join(CONTENT_DIR, file);
+	const fileName = postFilenameSchema.safeParse(file);
+
+	if (!fileName.success) {
+		throw new Error(
+			`${filePath} のファイル名が不正です。\n${z.prettifyError(fileName.error)}`,
+		);
+	}
+
 	const source = fs.readFileSync(path.join(CONTENT_DIR, file), "utf8");
 
 	const { data, content } = parseFrontMatter(
@@ -56,7 +67,7 @@ function loadPost(file): Post {
 	);
 
 	return {
-		slug: path.basename(file, ".md"),
+		slug: fileName.data.slug,
 		...data,
 		content: content,
 	};

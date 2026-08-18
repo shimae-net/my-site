@@ -4,6 +4,7 @@
 	"private": true,
 	"scripts": {
 		"build": "node tools/build.ts",
+		"new:post": "node tools/new-post.ts",
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",

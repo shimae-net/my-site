@@ -2,6 +2,21 @@ import { z } from "zod";
 
 z.config(z.locales.ja());
 
+export const postSlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+	error: "英小文字・数字・ハイフンのみで指定してください。",
+});
+
+export const postFilenameSchema = z
+	.string()
+	.regex(/^(?<prefix>\d{8}-\d{4})--(?<slug>[a-z0-9]+(?:-[a-z0-9]+)*)\.md$/, {
+		error: "YYYYMMDD-HHmm--slug.md 形式にしてください。",
+	})
+	.transform((fileName) => {
+		const [prefix, slug] = fileName.slice(0, -".md".length).split("--");
+
+		return { prefix, slug };
+	});
+
 export const postFrontMatterSchema = z.object({
 	title: z.string().min(1),
 	description: z.string().min(1),
@@ -13,7 +28,7 @@ export const postFrontMatterSchema = z.object({
 });
 
 export const postSchema = postFrontMatterSchema.extend({
-	slug: z.string().min(1),
+	slug: postSlugSchema,
 	content: z.string(),
 });
 
