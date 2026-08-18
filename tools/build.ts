@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { marked } from "marked";
 import { ZodError, z } from "zod";
 import { parse } from "zod-matter";
-
+import { SITE_TIME_ZONE } from "./site.ts";
 import {
 	type Post,
 	postFilenameSchema,
@@ -78,7 +78,11 @@ async function buildArticle(post: Post) {
 
 	const html = articleTemplate
 		.replaceAll("{{ title }}", post.title ?? "")
-		.replaceAll("{{ createdAt }}", format(post.createdAt, "yyyy/MM/dd") ?? "")
+		.replaceAll(
+			"{{ createdAt }}",
+			formatInTimeZone(post.createdAt, SITE_TIME_ZONE, "yyyy/MM/dd"),
+		)
+		.replaceAll("{{ createdAtIso }}", post.createdAt.toISOString())
 		.replaceAll("{{ description }}", post.description ?? "")
 		.replace("{{ content }}", content);
 
@@ -105,8 +109,8 @@ function renderPostListItem(post: Post) {
       <a href="/blog/${post.slug}/">
         ${post.title}
       </a>
-		<time datetime="${format(post.createdAt, "yyyy-MM-dd")}">
-		${format(post.createdAt, "yyyy/MM/dd HH:mm")}
+		<time datetime="${post.createdAt.toISOString()}">
+		${formatInTimeZone(post.createdAt, SITE_TIME_ZONE, "yyyy/MM/dd HH:mm")}
       </time>
     </li>
   `;

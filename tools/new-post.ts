@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { format } from "date-fns";
 import { z } from "zod";
 
 import { postFilenameSchema, postSlugSchema } from "./types.ts";
@@ -13,6 +12,12 @@ const newPostInputSchema = z.object({
 	slug: postSlugSchema,
 	title: z.string().trim().min(1, "記事タイトルを指定してください。"),
 });
+
+function formatUtcFilenamePrefix(date: Date) {
+	const [datePart, timePart] = date.toISOString().split("T");
+
+	return `${datePart.replaceAll("-", "")}-${timePart.slice(0, 5).replace(":", "")}`;
+}
 
 const [slug, ...titleParts] = process.argv.slice(2);
 const input = newPostInputSchema.safeParse({
@@ -26,8 +31,8 @@ if (!input.success) {
 	process.exitCode = 1;
 } else {
 	const now = new Date();
-	const createdAt = format(now, "yyyy-MM-dd HH:mm");
-	const prefix = format(now, "yyyyMMdd-HHmm");
+	const createdAt = now.toISOString();
+	const prefix = formatUtcFilenamePrefix(now);
 	const fileName = `${prefix}--${input.data.slug}.md`;
 	postFilenameSchema.parse(fileName);
 	const filePath = path.join(CONTENT_DIR, fileName);

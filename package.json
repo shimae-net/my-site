@@ -15,6 +15,7 @@
 	},
 	"dependencies": {
 		"date-fns": "^4.4.0",
+		"date-fns-tz": "^3.2.0",
 		"gray-matter": "^4.0.3",
 		"marked": "^18.0.9",
 		"zod": "^4.4.3",

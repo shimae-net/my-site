@@ -20,10 +20,14 @@ export const postFilenameSchema = z
 export const postFrontMatterSchema = z.object({
 	title: z.string().min(1),
 	description: z.string().min(1),
-	createdAt: z.union([z.date(), z.string().min(1)]).pipe(z.coerce.date()),
+	createdAt: z
+		.string()
+		.datetime()
+		.transform((value) => new Date(value)),
 	updatedAt: z
-		.union([z.date(), z.string().min(1)])
-		.pipe(z.coerce.date())
+		.string()
+		.datetime()
+		.transform((value) => new Date(value))
 		.optional(),
 });
 
