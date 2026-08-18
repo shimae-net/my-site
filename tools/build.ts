@@ -2,8 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { format } from "date-fns";
-import matter from "gray-matter";
 import { marked } from "marked";
+import { ZodError, z } from "zod";
+import { parse } from "zod-matter";
+
+import { type Post, postFrontMatterSchema } from "./types.ts";
 
 const CONTENT_DIR = "content/blog";
 const OUTPUT_DIR = "dist";
@@ -17,33 +20,54 @@ function creanOutput() {
 	fs.mkdirSync(BLOG_OUTPUT_DIR, { recursive: true });
 }
 
-function loadPosts() {
+function parseFrontMatter<T extends z.ZodType>(
+	source: string,
+	schema: T,
+	filePath: string,
+) {
+	try {
+		return parse(source, schema);
+	} catch (error) {
+		if (error instanceof ZodError) {
+			throw new Error(
+				`${filePath} の front matter が不正です。\n${z.prettifyError(error)}`,
+			);
+		}
+
+		throw error;
+	}
+}
+
+function loadPosts(): Post[] {
 	return fs
 		.readdirSync(CONTENT_DIR)
 		.filter((file) => file.endsWith(".md"))
 		.map((file) => loadPost(file));
 }
 
-function loadPost(file) {
+function loadPost(file): Post {
+	const filePath = path.join(CONTENT_DIR, file);
 	const source = fs.readFileSync(path.join(CONTENT_DIR, file), "utf8");
 
-	const { data, content } = matter(source);
+	const { data, content } = parseFrontMatter(
+		source,
+		postFrontMatterSchema,
+		filePath,
+	);
 
 	return {
 		slug: path.basename(file, ".md"),
-		title: data.title ?? "",
-		description: data.description ?? "",
-		date: data.date,
+		...data,
 		content: content,
 	};
 }
 
-async function buildArticle(post) {
+async function buildArticle(post: Post) {
 	const content = await marked(post.content);
 
 	const html = articleTemplate
 		.replaceAll("{{ title }}", post.title ?? "")
-		.replaceAll("{{ date }}", format(post.date, "yyyy/MM/dd") ?? "")
+		.replaceAll("{{ createdAt }}", format(post.createdAt, "yyyy/MM/dd") ?? "")
 		.replaceAll("{{ description }}", post.description ?? "")
 		.replace("{{ content }}", content);
 
@@ -53,9 +77,9 @@ async function buildArticle(post) {
 	fs.writeFileSync(path.join(outputDir, "index.html"), html);
 }
 
-function buildIndex(posts) {
+function buildIndex(posts: Post[]) {
 	const postsHtml = posts
-		.toSorted((a, b) => new Date(b.date) - new Date(a.date))
+		.toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 		.map(renderPostListItem)
 		.join("");
 
@@ -64,14 +88,14 @@ function buildIndex(posts) {
 	fs.writeFileSync(path.join(OUTPUT_DIR, "index.html"), html);
 }
 
-function renderPostListItem(post) {
+function renderPostListItem(post: Post) {
 	return `
     <li>
       <a href="/blog/${post.slug}/">
         ${post.title}
       </a>
-      <time datetime="${format(post.date, "yyyy-MM-dd")}">
-        ${format(post.date, "yyyy/MM/dd HH:mm")}
+		<time datetime="${format(post.createdAt, "yyyy-MM-dd")}">
+		${format(post.createdAt, "yyyy/MM/dd HH:mm")}
       </time>
     </li>
   `;
