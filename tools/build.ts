@@ -45,7 +45,7 @@ async function buildArticle(post) {
 		.replaceAll("{{ title }}", post.title ?? "")
 		.replaceAll("{{ date }}", format(post.date, "yyyy/MM/dd") ?? "")
 		.replaceAll("{{ description }}", post.description ?? "")
-		.replace("{{ content }}", await marked(content));
+		.replace("{{ content }}", content);
 
 	const outputDir = path.join(BLOG_OUTPUT_DIR, post.slug);
 
