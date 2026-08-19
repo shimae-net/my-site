@@ -5,7 +5,12 @@ import { formatInTimeZone } from "date-fns-tz";
 import { marked } from "marked";
 import { ZodError, z } from "zod";
 import { parse } from "zod-matter";
-import { SITE_TIME_ZONE, SITE_URL } from "./site.ts";
+import {
+	SITE_DESCRIPTION,
+	SITE_NAME,
+	SITE_TIME_ZONE,
+	SITE_URL,
+} from "./site.ts";
 import {
 	type Post,
 	postFilenameSchema,
@@ -78,6 +83,10 @@ function getPostPath(post: Post): string {
 	return `/blog/${post.slug}/`;
 }
 
+function getPostMarkdownPath(post: Post): string {
+	return `${getPostPath(post)}index.md`;
+}
+
 function getPostSitemapEntry(post: Post): SitemapEntry {
 	return {
 		pathname: getPostPath(post),
@@ -90,6 +99,7 @@ async function buildArticle(post: Post): Promise<void> {
 
 	const html = articleTemplate
 		.replaceAll("{{ title }}", post.title ?? "")
+		.replace("{{ markdownPath }}", getPostMarkdownPath(post))
 		.replaceAll(
 			"{{ createdAt }}",
 			formatInTimeZone(post.createdAt, SITE_TIME_ZONE, "yyyy/MM/dd"),
@@ -102,6 +112,7 @@ async function buildArticle(post: Post): Promise<void> {
 
 	fs.mkdirSync(outputDir, { recursive: true });
 	fs.writeFileSync(path.join(outputDir, "index.html"), html);
+	fs.writeFileSync(path.join(outputDir, "index.md"), post.content);
 }
 
 function getLastModified(posts: Post[]): Date | undefined {
@@ -122,6 +133,25 @@ function buildIndex(posts: Post[]): void {
 	const html = indexTemplate.replace("{{ posts }}", postsHtml);
 
 	fs.writeFileSync(path.join(OUTPUT_DIR, "index.html"), html);
+}
+
+function buildLlmsTxt(posts: Post[]): void {
+	const blog = posts
+		.toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+		.map(
+			(post) =>
+				`- [${post.title}](${getPostMarkdownPath(post)}): ${post.description} (${formatInTimeZone(post.createdAt, SITE_TIME_ZONE, "yyyy-MM-dd")})`,
+		)
+		.join("\n");
+
+	const llmsTxt = `# ${SITE_NAME}
+> ${SITE_DESCRIPTION}
+
+## Blog
+${blog}
+`;
+
+	fs.writeFileSync(path.join(OUTPUT_DIR, "llms.txt"), llmsTxt);
 }
 
 function renderPostListItem(post: Post) {
@@ -200,6 +230,7 @@ async function main() {
 	}
 
 	buildIndex(posts);
+	buildLlmsTxt(posts);
 	buildSitemap(getSitemapEntries(posts));
 	copyPublic();
 
